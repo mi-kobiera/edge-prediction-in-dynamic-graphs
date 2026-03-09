@@ -18,25 +18,27 @@ class LinkPredictor(torch.nn.Module):
         self.lin_final = Linear(hidden_channels, 1)
 
     def forward(self, z, edge_index, local_src, local_dst):
-        batch_labels = labeling.zero_one_two(z, edge_index, local_src, local_dst) # [Batch, N]
-        label_feats = self.label_emb(batch_labels) # [Batch, N, Dim]
-        
-        z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1) # [Batch, N, Dim]
-        
+        batch_labels = labeling.zero_one_two(
+            z, edge_index, local_src, local_dst
+        )  # [Batch, N]
+        label_feats = self.label_emb(batch_labels)  # [Batch, N, Dim]
+
+        z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1)  # [Batch, N, Dim]
+
         z_combined = z_expanded + label_feats
-        h_nodes = self.lin_transform(z_combined).relu() # [Batch, N, Hidden]
-        
-        mask = (batch_labels > 0).unsqueeze(-1).float() # [Batch, N, 1]
-        
+        h_nodes = self.lin_transform(z_combined).relu()  # [Batch, N, Hidden]
+
+        mask = (batch_labels > 0).unsqueeze(-1).float()  # [Batch, N, 1]
+
         # Sum pooling ważony maską (tylko sąsiedzi mają wpływ na strukturę)
-        h_struct = (h_nodes * mask).sum(dim=1) # [Batch, Hidden]
-        
+        h_struct = (h_nodes * mask).sum(dim=1)  # [Batch, Hidden]
+
         z_src = z[local_src]
         z_dst = z[local_dst]
-        
+
         h = self.lin_src(z_src) + self.lin_dst(z_dst) + self.lin_struct(h_struct)
         h = h.relu()
-        
+
         return self.lin_final(h)
 
 
@@ -44,8 +46,7 @@ class TGN_ZeroOneTwoLT(TGN):
     def __init__(self, data, cfg):
         super().__init__(data, cfg)
         self.link_pred = LinkPredictor(
-            in_channels=cfg.model.embedding_dim,
-            hidden_channels=cfg.model.embedding_dim
+            in_channels=cfg.model.embedding_dim, hidden_channels=cfg.model.embedding_dim
         ).to(cfg.device)
 
     def train_step(self, batch, criterion):

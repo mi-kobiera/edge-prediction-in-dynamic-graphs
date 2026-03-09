@@ -1,7 +1,6 @@
 import torch
 import logging
 import hydra
-from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from training.trainer import Trainer
