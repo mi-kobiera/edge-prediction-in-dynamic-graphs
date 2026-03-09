@@ -38,8 +38,6 @@ def main(cfg: DictConfig):
 
     ModelClass = hydra.utils.get_class(exp_cfg.model.target)
     model = ModelClass(data, exp_cfg)
-    # model = hydra.utils.instantiate(exp_cfg.model, data, exp_cfg)
-
 
     early_stopping = EarlyStopping(exp_cfg)
     callbacks = [early_stopping]

@@ -1,33 +1,7 @@
 import torch
 from torch.nn import Linear, Embedding
-from torch_geometric.nn import TGNMemory, TransformerConv
-from torch_geometric.nn.models.tgn import (
-    IdentityMessage,
-    LastAggregator,
-    LastNeighborLoader,
-)
-from torch_geometric.data import TemporalData
-
-from models.base import BaseModel
-from utils.config import ExperimentConfig
 from data import labeling
-
-
-class GraphAttentionEmbedding(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, msg_dim, time_enc):
-        super().__init__()
-        self.time_enc = time_enc
-        edge_dim = msg_dim + time_enc.out_channels
-        self.conv = TransformerConv(
-            in_channels, out_channels // 2, heads=2, dropout=0.1, edge_dim=edge_dim
-        )
-
-    def forward(self, x, last_update, edge_index, t, msg):
-        rel_t = last_update[edge_index[0]] - t
-        rel_t_enc = self.time_enc(rel_t.to(x.dtype))
-        edge_attr = torch.cat([rel_t_enc, msg], dim=-1)
-
-        return self.conv(x, edge_index, edge_attr)
+from models.TGN import TGN
 
 
 class LinkPredictor(torch.nn.Module):
@@ -44,7 +18,7 @@ class LinkPredictor(torch.nn.Module):
         self.lin_final = Linear(hidden_channels, 1)
 
     def forward(self, z, edge_index, local_src, local_dst):
-        batch_labels = labeling.zero_one(z, edge_index, local_src, local_dst) # [Batch, N]
+        batch_labels = labeling.zero_one_two(z, edge_index, local_src, local_dst) # [Batch, N]
         label_feats = self.label_emb(batch_labels) # [Batch, N, Dim]
         
         z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1) # [Batch, N, Dim]
@@ -66,44 +40,13 @@ class LinkPredictor(torch.nn.Module):
         return self.lin_final(h)
 
 
-class TGN_ZeroOneLT(BaseModel):
-    def __init__(self, data: TemporalData, cfg: ExperimentConfig):
-        super().__init__()
-        self._data = data
-        self._device = cfg.device
-
-        self.neighbor_loader = LastNeighborLoader(
-            data.num_nodes, size=cfg.dataset.num_neighbors, device=cfg.device
-        )
-
-        self.memory = TGNMemory(
-            data.num_nodes,
-            data.msg.size(-1),
-            cfg.model.memory_dim,
-            cfg.model.time_dim,
-            message_module=IdentityMessage(
-                data.msg.size(-1), cfg.model.memory_dim, cfg.model.time_dim
-            ),
-            aggregator_module=LastAggregator(),
-        ).to(cfg.device)
-
-        self.gnn = GraphAttentionEmbedding(
-            in_channels=cfg.model.memory_dim,
-            out_channels=cfg.model.embedding_dim,
-            msg_dim=data.msg.size(-1),
-            time_enc=self.memory.time_enc,
-        ).to(cfg.device)
-
+class TGN_ZeroOneTwoLT(TGN):
+    def __init__(self, data, cfg):
+        super().__init__(data, cfg)
         self.link_pred = LinkPredictor(
             in_channels=cfg.model.embedding_dim,
             hidden_channels=cfg.model.embedding_dim
         ).to(cfg.device)
-
-        self.assoc = torch.empty(data.num_nodes, dtype=torch.long, device=cfg.device)
-
-    def on_epoch_start(self):
-        self.memory.reset_state()
-        self.neighbor_loader.reset_state()
 
     def train_step(self, batch, criterion):
         n_id, edge_index, e_id = self.neighbor_loader(batch.n_id)
@@ -158,6 +101,3 @@ class TGN_ZeroOneLT(BaseModel):
         self.neighbor_loader.insert(batch.src, batch.dst)
 
         return pos_out, neg_out
-
-    def after_optimizer_step(self):
-        self.memory.detach()
