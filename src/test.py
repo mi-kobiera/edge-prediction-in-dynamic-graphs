@@ -1,6 +1,7 @@
 import torch
 import logging
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from training.trainer import Trainer
@@ -8,8 +9,7 @@ from training.evaluator import Evaluator
 from training.callbacks.early_stopping import EarlyStopping
 from training.callbacks.tensorboard import TensorBoardLogger
 from utils.config import load_config
-from models.TGN import TGN
-from data.data import load_data, get_dataloader
+from data.loader import load_data, get_dataloader
 from utils.random import set_random_seed
 
 logger = logging.getLogger(__name__)
@@ -20,36 +20,31 @@ def main(cfg: DictConfig):
     exp_cfg = load_config(cfg)
 
     set_random_seed(exp_cfg.seed)
-    data = load_data(exp_cfg.data.path)
+    data = load_data(exp_cfg.dataset.path)
     train_data, val_data, test_data = data.train_val_test_split(
-        exp_cfg.data.data_split.val_ratio, exp_cfg.data.data_split.test_ratio
+        exp_cfg.dataset.split.val_ratio, exp_cfg.dataset.split.test_ratio
     )
 
-    batch_size = exp_cfg.data.batch_size
+    batch_size = exp_cfg.dataset.batch_size
     train_loader = get_dataloader(
-        train_data, batch_size, exp_cfg.data.negative_sampling.train_ratio
+        train_data, batch_size, exp_cfg.dataset.negative_sampling_ratio
     )
     val_loader = get_dataloader(
-        val_data, batch_size, exp_cfg.data.negative_sampling.eval_ratio
+        val_data, batch_size, exp_cfg.dataset.negative_sampling_ratio
     )
     test_loader = get_dataloader(
-        test_data, batch_size, exp_cfg.data.negative_sampling.eval_ratio
+        test_data, batch_size, exp_cfg.dataset.negative_sampling_ratio
     )
 
-    model = TGN(data, exp_cfg)
+    ModelClass = hydra.utils.get_class(exp_cfg.model.target)
+    model = ModelClass(data, exp_cfg)
+    # model = hydra.utils.instantiate(exp_cfg.model, data, exp_cfg)
 
-    callbacks = []
 
-    early_stopping = EarlyStopping(
-        monitor="val/auc",
-        patience=exp_cfg.training.patience,
-        mode="max",
-        path="best_model.pt",
-        verbose=True,
-    )
-    callbacks.append(early_stopping)
+    early_stopping = EarlyStopping(exp_cfg)
+    callbacks = [early_stopping]
 
-    if cfg.tensorboard.enabled:
+    if exp_cfg.tensorboard.enabled:
         tb_logger = TensorBoardLogger(config=exp_cfg)
         callbacks.append(tb_logger)
 
@@ -68,6 +63,12 @@ def main(cfg: DictConfig):
     )
 
     trainer.train(train_loader, val_loader)
+
+    # test po treningu
+    # TODO dodać tu wczytanie modelu, przenieść do train
+    logger.info("Evaluating on test set...")
+    test_metrics = evaluator.evaluate(test_loader)
+    logger.info(f"Test results: {test_metrics}")
 
 
 if __name__ == "__main__":

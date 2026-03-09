@@ -49,7 +49,7 @@ class TGN(BaseModel):
         self._device = cfg.device
 
         self.neighbor_loader = LastNeighborLoader(
-            data.num_nodes, size=cfg.data.num_neighbors, device=cfg.device
+            data.num_nodes, size=cfg.dataset.num_neighbors, device=cfg.device
         )
 
         self.memory = TGNMemory(

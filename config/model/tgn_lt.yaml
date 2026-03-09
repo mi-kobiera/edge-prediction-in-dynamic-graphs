@@ -1,7 +1,6 @@
-name: TGN_lt
-_target_: src.models.TGN.TGN_lt
-
+_name: tgn_lt
+_target_: models.TGN_lt.TGN_ZeroOneLT
+dropout: 0.1
 memory_dim: 100
 embedding_dim: 100
 time_dim: 100
-dropout: 0.1
