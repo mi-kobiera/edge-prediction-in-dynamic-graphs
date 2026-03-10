@@ -18,7 +18,7 @@ class LinkPredictor(torch.nn.Module):
         self.lin_final = Linear(hidden_channels, 1)
 
     def forward(self, z, edge_index, local_src, local_dst):
-        batch_labels = labeling.zero_one_two(
+        batch_labels = labeling.zot_node_labeling(
             z, edge_index, local_src, local_dst
         )  # [Batch, N]
         label_feats = self.label_emb(batch_labels)  # [Batch, N, Dim]
@@ -42,7 +42,7 @@ class LinkPredictor(torch.nn.Module):
         return self.lin_final(h)
 
 
-class TGN_ZeroOneTwoLT(TGN):
+class TGN_ZOT(TGN):
     def __init__(self, data, cfg):
         super().__init__(data, cfg)
         self.link_pred = LinkPredictor(

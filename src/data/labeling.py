@@ -2,8 +2,9 @@ import torch
 from torch_geometric.utils import to_dense_adj
 
 
-def zero_one_two(z, edge_index, local_src, local_dst):
+def zot_node_labeling(z, edge_index, local_src, local_dst):
     """
+    Zero-One-Two Labeling 
     Output shape: [Batch_Size, Num_Nodes].
     """
     num_nodes = z.size(0)
@@ -34,6 +35,7 @@ def zero_one_two(z, edge_index, local_src, local_dst):
 
 def de_node_labeling(z, edge_index, local_src, local_dst, max_dist=3):
     """
+    Distance Encoding Labeling
     Output shape: [Batch_Size, Num_Nodes, 2].
     """
     num_nodes = z.size(0)
