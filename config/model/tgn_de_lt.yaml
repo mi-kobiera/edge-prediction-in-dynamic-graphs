@@ -1,5 +1,5 @@
-_name: tgn_lt
-_target_: models.TGN_lt.TGN_ZeroOneTwoLT
+_name: tgn_de_lt
+_target_: models.TGN_de_lt.TGN_DE
 dropout: 0.1
 memory_dim: 100
 embedding_dim: 100
