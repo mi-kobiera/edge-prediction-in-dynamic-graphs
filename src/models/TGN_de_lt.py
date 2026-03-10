@@ -8,11 +8,11 @@ class LinkPredictor(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, max_dist=4):
         super().__init__()
         self.max_dist = max_dist
-        
+
         # Wartości dystansów to: 0, 1, ..., max_dist, oraz max_dist+1 (nieosiągalne).
         # Dlatego rozmiar słownika to max_dist + 2.
         self.label_emb = Embedding(max_dist + 2, in_channels)
-        
+
         self.lin_transform = Linear(in_channels, hidden_channels)
 
         self.lin_src = Linear(in_channels, in_channels)
@@ -36,24 +36,28 @@ class LinkPredictor(torch.nn.Module):
         # 3. Tworzymy embeddingi dla dystansów i sumujemy je
         emb_src = self.label_emb(dist_src)  # [Batch_Size, Num_Nodes, Dim]
         emb_dst = self.label_emb(dist_dst)  # [Batch_Size, Num_Nodes, Dim]
-        label_feats = emb_src + emb_dst     # [Batch_Size, Num_Nodes, Dim]
+        label_feats = emb_src + emb_dst  # [Batch_Size, Num_Nodes, Dim]
 
         # 4. Łączymy oryginalne cechy węzłów z cechami relacyjnymi (dystansami)
         z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1)
         z_combined = z_expanded + label_feats
-        
-        # 5. Transformacja węzłów w kontekście badanej krawędzi
-        h_nodes = self.lin_transform(z_combined).relu()  # [Batch_Size, Num_Nodes, Hidden]
 
-        # 6. Tworzymy maskę. 
+        # 5. Transformacja węzłów w kontekście badanej krawędzi
+        h_nodes = self.lin_transform(
+            z_combined
+        ).relu()  # [Batch_Size, Num_Nodes, Hidden]
+
+        # 6. Tworzymy maskę.
         # Chcemy uwzględnić w strukturze tylko węzły, które są w okolicy max_dist.
         # Warunek (dist <= max_dist) odrzuca węzły "nieosiągalne" (wartość max_dist + 1).
-        # Jeśli dodatkowo chcesz ODRZUCIĆ z poolingu same węzły src i dst 
+        # Jeśli dodatkowo chcesz ODRZUCIĆ z poolingu same węzły src i dst
         # (tak jak robiło to batch_labels > 0 w starym kodzie), użyj kodu poniżej:
-        
+
         is_reachable_src = (dist_src > 0) & (dist_src <= self.max_dist)
         is_reachable_dst = (dist_dst > 0) & (dist_dst <= self.max_dist)
-        mask = (is_reachable_src | is_reachable_dst).unsqueeze(-1).float() # [Batch_Size, Num_Nodes, 1]
+        mask = (
+            (is_reachable_src | is_reachable_dst).unsqueeze(-1).float()
+        )  # [Batch_Size, Num_Nodes, 1]
 
         # 7. Sum pooling ważony maską (zbieramy informację o otoczeniu krawędzi)
         h_struct = (h_nodes * mask).sum(dim=1)  # [Batch_Size, Hidden]

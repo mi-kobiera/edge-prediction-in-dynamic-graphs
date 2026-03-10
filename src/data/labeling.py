@@ -49,8 +49,12 @@ def de_node_labeling(z, edge_index, local_src, local_dst, max_dist=3):
     adj = to_dense_adj(edge_index, max_num_nodes=num_nodes).squeeze(0)
 
     # 3. Inicjalizacja wyników. Wartość 'max_dist + 1' oznacza "nieosiągalne" w tym promieniu
-    dist_src = torch.full((batch_size, num_nodes), max_dist + 1, dtype=torch.long, device=device)
-    dist_dst = torch.full((batch_size, num_nodes), max_dist + 1, dtype=torch.long, device=device)
+    dist_src = torch.full(
+        (batch_size, num_nodes), max_dist + 1, dtype=torch.long, device=device
+    )
+    dist_dst = torch.full(
+        (batch_size, num_nodes), max_dist + 1, dtype=torch.long, device=device
+    )
 
     # 4. Inicjalizacja wektorów "frontier" (węzły startowe) -> kształt [Batch_Size, Num_Nodes]
     front_src = torch.zeros(batch_size, num_nodes, device=device)
@@ -91,5 +95,5 @@ def de_node_labeling(z, edge_index, local_src, local_dst, max_dist=3):
 
     # 6. Łączymy wyniki. Zwracamy tensor [Batch_Size, Num_Nodes, 2]
     batch_dist = torch.stack([dist_src, dist_dst], dim=-1)
-    
+
     return batch_dist
