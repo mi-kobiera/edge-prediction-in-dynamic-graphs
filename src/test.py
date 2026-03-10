@@ -60,12 +60,7 @@ def main(cfg: DictConfig):
     )
 
     trainer.train(train_loader, val_loader)
-
-    # test po treningu
-    # TODO dodać tu wczytanie modelu, przenieść do train
-    logger.info("Evaluating on test set...")
-    test_metrics = evaluator.evaluate(test_loader)
-    logger.info(f"Test results: {test_metrics}")
+    trainer.test(test_loader)
 
 
 if __name__ == "__main__":

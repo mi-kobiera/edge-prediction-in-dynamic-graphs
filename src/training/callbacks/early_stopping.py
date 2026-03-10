@@ -66,7 +66,14 @@ class EarlyStopping(Callback):
 
             if self.counter >= self.patience:
                 trainer.should_stop = True
-                logger.info("Early stopping triggered.")
+                if self.verbose:
+                    logger.info("Early stopping triggered.")
+
+    def on_train_end(self, trainer):
+        checkpoint = torch.load(self.path, weights_only=False)
+        trainer.model.load_state_dict(checkpoint["model_state_dict"])
+        if self.verbose:
+            logger.info("Best model loaded.")
 
     def _save_checkpoint(self, trainer, score):
         checkpoint = {

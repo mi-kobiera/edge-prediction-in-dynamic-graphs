@@ -69,9 +69,14 @@ class Trainer:
                     cb.on_epoch_end(self, metrics)
 
                 if self.should_stop:
-                    logger.info("Early stopping triggered.")
                     break
 
         for cb in self.callbacks:
             cb.on_train_end(self)
         logger.info("Training finished.")
+
+    def test(self, test_loader):
+        logger.info("Evaluating on test set...")
+        test_metrics = self.evaluator.evaluate(test_loader)
+        logger.info(f"Test results: {test_metrics}")
+        return test_metrics

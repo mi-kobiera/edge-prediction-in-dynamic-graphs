@@ -48,7 +48,7 @@ class TGNConfig(ModelConfig):
 class EarlyStoppingConfig(BaseModel):
     metric_name: str = Field("val/ap", description="Early stopping metric name")
     patience: int = Field(10, gt=0)
-    mode: Literal["min", "max"] = Field("min")
+    mode: Literal["min", "max"] = Field("max")
     delta: float = Field(0.0, ge=0.0)
     verbose: bool = Field(True)
     path: str = Field("best_model.pt")
