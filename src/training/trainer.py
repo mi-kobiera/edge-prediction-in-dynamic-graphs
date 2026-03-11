@@ -57,7 +57,6 @@ class Trainer:
             if epoch % self.cfg.eval.eval_every == 0:
                 metrics = self.evaluator.evaluate(val_loader, "val")
                 metrics["train/loss"] = avg_loss
-                metrics["epoch"] = epoch
 
                 logger.info(
                     f"Epoch {epoch:03d} | Loss: {avg_loss:.4f} | "
