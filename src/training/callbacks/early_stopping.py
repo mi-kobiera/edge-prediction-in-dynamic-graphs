@@ -2,7 +2,9 @@ import numpy as np
 import torch
 import logging
 from pathlib import Path
+
 from .base import Callback
+from utils.config import ExperimentConfig
 
 try:
     from hydra.core.hydra_config import HydraConfig
@@ -15,38 +17,30 @@ logger = logging.getLogger(__name__)
 
 
 class EarlyStopping(Callback):
-    def __init__(
-        self,
-        monitor: str,
-        patience: int = 7,
-        mode: str = "min",
-        delta: float = 0.0,
-        path: str = "best_model.pt",
-        verbose: bool = True,
-    ):
-        self.monitor = monitor
-        self.patience = patience
-        self.mode = mode
-        self.delta = delta
-        self.verbose = verbose
-        self.path = Path(path)
+    def __init__(self, cfg: ExperimentConfig):
+        self.monitor = cfg.training.early_stopping.metric_name
+        self.patience = cfg.training.early_stopping.patience
+        self.mode = cfg.training.early_stopping.mode
+        self.delta = cfg.training.early_stopping.delta
+        self.verbose = cfg.training.early_stopping.verbose
+        self.path = Path(cfg.training.early_stopping.path)
 
         if HAS_HYDRA and HydraConfig.initialized() and not self.path.is_absolute():
             hydra_output_dir = HydraConfig.get().runtime.output_dir
             self.path = Path(hydra_output_dir) / self.path
 
-        if verbose:
+        if self.verbose:
             logger.info(f"Checkpoint path: {self.path.absolute()}")
 
         self.counter = 0
         self.best_score = None
 
-        if mode == "min":
+        if self.mode == "min":
             self.monitor_op = np.less
-            self.min_delta = -delta
-        elif mode == "max":
+            self.min_delta = -self.delta
+        elif self.mode == "max":
             self.monitor_op = np.greater
-            self.min_delta = delta
+            self.min_delta = self.delta
         else:
             raise ValueError("mode must be 'min' or 'max'")
 
@@ -72,7 +66,14 @@ class EarlyStopping(Callback):
 
             if self.counter >= self.patience:
                 trainer.should_stop = True
-                logger.info("Early stopping triggered.")
+                if self.verbose:
+                    logger.info("Early stopping triggered.")
+
+    def on_train_end(self, trainer):
+        checkpoint = torch.load(self.path, weights_only=False)
+        trainer.model.load_state_dict(checkpoint["model_state_dict"])
+        if self.verbose:
+            logger.info("Best model loaded.")
 
     def _save_checkpoint(self, trainer, score):
         checkpoint = {

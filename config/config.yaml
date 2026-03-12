@@ -1,11 +1,9 @@
 defaults:
-  - data: wikipedia
+  - dataset: wikipedia
   - model: tgn
   - _self_
 
-project_name: "edge-prediction-in-dynamic-graphs"
-experiment_name: "${model.name}_${data.dataset_name}_lr${training.lr}"
-
+experiment_name: "${model._name}_${dataset._name}_lr${training.lr}"
 seed: 42
 device: cpu
 
@@ -13,11 +11,11 @@ training:
   epochs: 50
   lr: 0.0001
   weight_decay: 1e-5
-  patience: 5
+  early_stopping:
+    patience: 5
 
 eval:
   eval_every: 1
-  inductive_setting: true
 
 tensorboard:
   enabled: true
@@ -30,4 +28,3 @@ hydra:
   sweep:
     dir: runs/${experiment_name}
     subdir: ${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.num}
-  

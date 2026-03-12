@@ -1,7 +1,6 @@
-name: TGN
-_target_: src.models.TGN.TGN
-
+_name: tgn
+_target_: models.TGN.TGN
+dropout: 0.1
 memory_dim: 100
 embedding_dim: 100
 time_dim: 100
-dropout: 0.1
