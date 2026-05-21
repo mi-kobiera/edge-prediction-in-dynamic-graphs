@@ -1,4 +1,4 @@
-path: ./data/processed/ml_wikipedia.pt
+path: ./data/processed/ml_reddit.pt
 batch_size: 200
 split:
   val_ratio: 0.15

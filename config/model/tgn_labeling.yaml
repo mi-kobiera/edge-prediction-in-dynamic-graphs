@@ -1,4 +1,4 @@
-_target_: models.tgn_vanilla.TGN
+_target_: models.tgn_labeling.TGNLabeling
 dropout: 0.1
 memory_dim: 100
 embedding_dim: 100

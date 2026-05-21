@@ -7,24 +7,15 @@ Source code for: "Edge Prediction in Dynamic Graphs: A Research-Oriented Analysi
 - [x] Add zero-one-two node labeling
 - [x] Add tensorboard
 - [x] Add DE and DRNL node labeling
-- [ ] Add more datasets
-    - [ ] Enron
-    - [ ] tgbl-flight
-    - [ ] tgbl-comment (Reddit)
-    - [ ] tgbl-coin
-    - [ ] tgbl-review-v2 (Amazon)
-- [ ] Add caching for node labels
-- [ ] Create visualization tool (TGX?)
+- [ ] Add tgbl datasets
+- [ ] Add historical and inductive negative sampling
 - [ ] Add more architectures
     - [ ] TGAT
     - [ ] CAWN
     - [ ] JODIE
     - [ ] DyRep
-- [ ] Add dataset visualization (TEA, TET plots)
-- [ ] Add Historical and Inductive Negative Sampling
-- [ ] Add more node labeling methods
-    - [ ] DI DRNL
-    - [ ] DI DE
-    - [ ] DE plus
-    - [ ] Zero-One (?)
-- [ ] Modify to Pytorch Lightning
+- [ ] Other
+    - [ ] Create visualization tool (TGX?)
+    - [ ] Dataset visualization (TEA, TET plots)
+    - [ ] Caching for node labels
+    - [ ] Pytorch Lightning

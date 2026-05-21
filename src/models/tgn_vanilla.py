@@ -1,5 +1,4 @@
 import torch
-from torch.nn import Linear
 from torch_geometric.nn import TGNMemory, TransformerConv
 from torch_geometric.nn.models.tgn import (
     IdentityMessage,
@@ -10,6 +9,8 @@ from torch_geometric.data import TemporalData
 
 from models.base import BaseModel
 from utils.config import ExperimentConfig
+from labeling.base import NodeLabeling
+from utils.negative_sampling import BaseNegativeSampler
 
 
 class GraphAttentionEmbedding(torch.nn.Module):
@@ -32,9 +33,9 @@ class GraphAttentionEmbedding(torch.nn.Module):
 class LinkPredictor(torch.nn.Module):
     def __init__(self, in_channels):
         super().__init__()
-        self.lin_src = Linear(in_channels, in_channels)
-        self.lin_dst = Linear(in_channels, in_channels)
-        self.lin_final = Linear(in_channels, 1)
+        self.lin_src = torch.nn.Linear(in_channels, in_channels)
+        self.lin_dst = torch.nn.Linear(in_channels, in_channels)
+        self.lin_final = torch.nn.Linear(in_channels, 1)
 
     def forward(self, z_src, z_dst):
         h = self.lin_src(z_src) + self.lin_dst(z_dst)
@@ -43,44 +44,45 @@ class LinkPredictor(torch.nn.Module):
 
 
 class TGN(BaseModel):
-    def __init__(self, data: TemporalData, cfg: ExperimentConfig):
+    def __init__(self, num_neighbors: int, dropout: float, memory_dim: int, embedding_dim: int, time_dim: int, data: TemporalData, negative_sampler: BaseNegativeSampler, labeling: NodeLabeling | None, device: str):
         super().__init__()
         self._data = data
-        self._device = cfg.device
+        self._device = device
 
         self.neighbor_loader = LastNeighborLoader(
-            data.num_nodes, size=cfg.dataset.num_neighbors, device=cfg.device
+            data.num_nodes, size=num_neighbors, device=self._device
         )
 
         self.memory = TGNMemory(
             data.num_nodes,
             data.msg.size(-1),
-            cfg.model.memory_dim,
-            cfg.model.time_dim,
+            memory_dim,
+            time_dim,
             message_module=IdentityMessage(
-                data.msg.size(-1), cfg.model.memory_dim, cfg.model.time_dim
+                data.msg.size(-1), memory_dim, time_dim
             ),
             aggregator_module=LastAggregator(),
-        ).to(cfg.device)
+        ).to(self._device)
 
         self.gnn = GraphAttentionEmbedding(
-            in_channels=cfg.model.memory_dim,
-            out_channels=cfg.model.embedding_dim,
+            in_channels=memory_dim,
+            out_channels=embedding_dim,
             msg_dim=data.msg.size(-1),
             time_enc=self.memory.time_enc,
-        ).to(cfg.device)
+        ).to(self._device)
 
-        self.link_pred = LinkPredictor(in_channels=cfg.model.embedding_dim).to(
-            cfg.device
-        )
+        self.negative_sampler = negative_sampler
 
-        self.assoc = torch.empty(data.num_nodes, dtype=torch.long, device=cfg.device)
+        self.link_pred = LinkPredictor(in_channels=embedding_dim).to(device)
+
+        self.assoc = torch.empty(data.num_nodes, dtype=torch.long, device=self._device)
 
     def on_epoch_start(self):
         self.memory.reset_state()
         self.neighbor_loader.reset_state()
 
     def train_step(self, batch, criterion):
+        self.negative_sampler.sample(batch=batch, size=batch.src.size(0))
         n_id, edge_index, e_id = self.neighbor_loader(batch.n_id)
         self.assoc[n_id] = torch.arange(n_id.size(0), device=self._device)
 
@@ -95,7 +97,8 @@ class TGN(BaseModel):
         )
 
         pos_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.dst]])
-        neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        # neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
 
         loss = criterion(pos_out, torch.ones_like(pos_out))
         loss += criterion(neg_out, torch.zeros_like(neg_out))
@@ -107,6 +110,7 @@ class TGN(BaseModel):
 
     @torch.no_grad()
     def test_step(self, batch):
+        self.negative_sampler.sample(batch=batch, size=batch.src.size(0))
         n_id, edge_index, e_id = self.neighbor_loader(batch.n_id)
         self.assoc[n_id] = torch.arange(n_id.size(0), device=self._device)
 
@@ -120,7 +124,8 @@ class TGN(BaseModel):
         )
 
         pos_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.dst]])
-        neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        # neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
 
         self.memory.update_state(batch.src, batch.dst, batch.t.long(), batch.msg)
         self.neighbor_loader.insert(batch.src, batch.dst)

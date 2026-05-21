@@ -19,10 +19,6 @@ class DatasetSplitConfig(BaseModel):
 class DatasetConfig(BaseModel):
     path: Path = Field(..., description="Path to the processed dataset file")
     batch_size: int = Field(..., gt=0.0)
-    negative_sampling_ratio: int = Field(
-        1, ge=1, description="Number of negative samples per positive edge"
-    )
-    num_neighbors: int = Field(10, description="Number of neigbors for neigbor_loader")
     split: DatasetSplitConfig
 
 
@@ -30,16 +26,28 @@ class DatasetConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    target: str = Field(
-        ..., alias="_target_", description="Python class path for Hydra"
-    )
     dropout: float = Field(0.0, ge=0.0, lt=1.0)
 
 
 class TGNConfig(ModelConfig):
+    num_neighbors: int = Field(10, description="Number of neigbors for neigbor_loader")
     memory_dim: int = Field(..., gt=0)
     embedding_dim: int = Field(..., gt=0)
     time_dim: int = Field(..., gt=0)
+
+
+# ----- Node labeling -----
+
+
+class NodeLabelingConfig(BaseModel):
+    label_dim: int = Field(1, ge=0)
+
+
+# ----- Negative sampling -----
+
+
+class NegativeSamplingConfig(BaseModel):
+    pass
 
 
 # ----- Training -----
@@ -63,7 +71,6 @@ class TrainingConfig(BaseModel):
 
 class EvalConfig(BaseModel):
     eval_every: int = Field(1, ge=1, description="Run validation every X epochs")
-    # inductive_setting: bool = Field(False, "Evaluate on new, previously unseen nodes (inductive link prediction)")
 
 
 # ----- Logging and tracking -----
@@ -86,6 +93,8 @@ class ExperimentConfig(BaseModel):
     )  # TODO dla mps: RuntimeError: indices should be either on cpu or on the same device as the indexed tensor (cpu)
     dataset: DatasetConfig
     model: TGNConfig
+    negative_sampling: NegativeSamplingConfig
+    labeling: NodeLabelingConfig | None = None
     training: TrainingConfig
     eval: EvalConfig
     tensorboard: TensorBoardConfig
