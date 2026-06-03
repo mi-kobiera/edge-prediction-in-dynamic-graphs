@@ -99,12 +99,6 @@ class Trainer:
                 )
             )
 
-            # y_pred.append(pos_out.cpu())
-            # y_true.append(torch.ones_like(pos_out).cpu())
-
-            # y_pred.append(neg_out.cpu())
-            # y_true.append(torch.zeros_like(neg_out).cpu())
-
         y_pred = torch.cat(y_pred).numpy()
         y_true = torch.cat(y_true).numpy()
 
@@ -112,25 +106,3 @@ class Trainer:
             f"{prefix}/auc": roc_auc_score(y_true, y_pred),
             f"{prefix}/ap": average_precision_score(y_true, y_pred),
         }
-
-    # @torch.no_grad()
-    # def _evaluate(self, loader, prefix="test"):
-    #     self.model.eval()
-    #     y_pred, y_true = [], []
-
-    #     for batch in loader:
-    #         batch = batch.to(self.device)
-
-    #         out = self.model.test_step(batch)  # [N, 1]
-    #         out = out.squeeze(-1)              # [N]
-
-    #         y_pred.append(out.sigmoid().cpu())
-    #         y_true.append(batch.y.float().cpu())
-
-    #     y_pred = torch.cat(y_pred).numpy()
-    #     y_true = torch.cat(y_true).numpy()
-
-    #     return {
-    #         f"{prefix}/auc": roc_auc_score(y_true, y_pred),
-    #         f"{prefix}/ap": average_precision_score(y_true, y_pred),
-    #     }

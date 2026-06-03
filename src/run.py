@@ -22,7 +22,10 @@ def main(cfg: DictConfig):
 
     # ------- 1
     from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
-    dataset = PyGLinkPropPredDataset(name="tgbl-wiki", root="../datasets")
+    import os
+    print(os.getcwd())
+    dataset = PyGLinkPropPredDataset(name="tgbl-review", root="../datasets")
+    # dataset = PyGLinkPropPredDataset(name="tgbl-wiki", root="../datasets")
     data = dataset.get_TemporalData()
     if hasattr(dataset, 'train_mask'):
         data.train_mask = dataset.train_mask
@@ -35,17 +38,17 @@ def main(cfg: DictConfig):
 
     # -------
 
-    data = load_data(exp_cfg.dataset.path)
+    # data = load_data(exp_cfg.dataset.path)
 
-    train_data, val_data, test_data = data.train_val_test_split(
-        exp_cfg.dataset.split.val_ratio, exp_cfg.dataset.split.test_ratio
-    )
+    # train_data, val_data, test_data = data.train_val_test_split(
+    #     exp_cfg.dataset.split.val_ratio, exp_cfg.dataset.split.test_ratio
+    # )
 
     #inductive sampler
-    from utils.negative_sampling import InductiveNegativeSampler
+    # from utils.negative_sampling import InductiveNegativeSampler
 
 
-    negative_sampler = InductiveNegativeSampler(data, train_data)
+    # negative_sampler = InductiveNegativeSampler(data, train_data)
     ######
 
 
@@ -82,6 +85,14 @@ def main(cfg: DictConfig):
 
     # ModelClass = hydra.utils.get_class(exp_cfg.model.target)
     # model = ModelClass(data, negative_sampler=negative_sampler, labeling=labeling, cfg=exp_cfg)
+
+
+    ###
+    from utils.negative_sampling import RandomNegariveSampler, HistoricalNegativeSampler
+    negative_sampler = RandomNegariveSampler(data)
+    # negative_sampler = HistoricalNegativeSampler(data)
+
+    ###
 
     model = hydra.utils.instantiate(cfg.model, data=data, negative_sampler=negative_sampler, labeling=labeling, device=exp_cfg.device)
 

@@ -34,7 +34,7 @@ class LinkPredictor(torch.nn.Module):
         super().__init__()
         self.labeler = labeler
 
-        self.label_emb = torch.nn.Embedding(6, in_channels)
+        self.label_emb = torch.nn.Embedding(3, in_channels)
         self.lin_transform = torch.nn.Linear(in_channels, hidden_channels)
 
         self.lin_src = torch.nn.Linear(in_channels, in_channels)
@@ -45,28 +45,20 @@ class LinkPredictor(torch.nn.Module):
         self.lin_final = torch.nn.Linear(hidden_channels, 1)
 
     def forward(self, z, edge_index, local_src, local_dst):
-        result = self.labeler.compute(z, edge_index, local_src, local_dst)
+        batch_labels = self.labeler.compute(
+            z, edge_index, local_src, local_dst
+        )  # [Batch, N]
+        label_feats = self.label_emb(batch_labels)  # [Batch, N, Dim]
 
-        if result.dim() == 3:
-            # DE: [Batch, N, 2]
-            dist_src = result[:, :, 0]
-            dist_dst = result[:, :, 1]
-            label_feats = self.label_emb(dist_src) + self.label_emb(dist_dst)
+        z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1)  # [Batch, N, Dim]
 
-            sentinel = self.label_emb.num_embeddings - 1
-            is_reachable_src = (dist_src > 0) & (dist_src < sentinel)
-            is_reachable_dst = (dist_dst > 0) & (dist_dst < sentinel)
-            mask = (is_reachable_src | is_reachable_dst).unsqueeze(-1).float()
-        else:
-            # DRNL / ZeroOneTwo: [Batch, N]
-            label_feats = self.label_emb(result)
-            mask = (result > 0).unsqueeze(-1).float()
-
-        z_expanded = z.unsqueeze(0).expand(local_src.size(0), -1, -1)
         z_combined = z_expanded + label_feats
-        h_nodes = self.lin_transform(z_combined).relu()
+        h_nodes = self.lin_transform(z_combined).relu()  # [Batch, N, Hidden]
 
-        h_struct = (h_nodes * mask).sum(dim=1)
+        mask = (batch_labels > 0).unsqueeze(-1).float()  # [Batch, N, 1]
+
+        # Sum pooling ważony maską (tylko sąsiedzi mają wpływ na strukturę)
+        h_struct = (h_nodes * mask).sum(dim=1)  # [Batch, Hidden]
 
         z_src = z[local_src]
         z_dst = z[local_dst]

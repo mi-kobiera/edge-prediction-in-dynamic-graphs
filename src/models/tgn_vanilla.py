@@ -80,6 +80,7 @@ class TGN(BaseModel):
     def on_epoch_start(self):
         self.memory.reset_state()
         self.neighbor_loader.reset_state()
+        self.negative_sampler.reset()
 
     def train_step(self, batch, criterion):
         self.negative_sampler.sample(batch=batch, size=batch.src.size(0))
@@ -97,8 +98,8 @@ class TGN(BaseModel):
         )
 
         pos_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.dst]])
-        # neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
-        neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
+        neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        # neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
 
         loss = criterion(pos_out, torch.ones_like(pos_out))
         loss += criterion(neg_out, torch.zeros_like(neg_out))
@@ -124,8 +125,8 @@ class TGN(BaseModel):
         )
 
         pos_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.dst]])
-        # neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
-        neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
+        neg_out = self.link_pred(z[self.assoc[batch.src]], z[self.assoc[batch.neg_dst]])
+        # neg_out = self.link_pred(z[self.assoc[batch.neg_src]], z[self.assoc[batch.neg_dst]])
 
         self.memory.update_state(batch.src, batch.dst, batch.t.long(), batch.msg)
         self.neighbor_loader.insert(batch.src, batch.dst)

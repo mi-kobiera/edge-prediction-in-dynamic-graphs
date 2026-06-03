@@ -1,5 +1,5 @@
 path: ./data/processed/ml_wikipedia.pt
-batch_size: 200
+batch_size: 1000
 split:
   val_ratio: 0.15
   test_ratio: 0.15

@@ -12,6 +12,10 @@ class BaseNegativeSampler(ABC):
     def sample(self, batch: TemporalData, size: int, **kwargs):
         pass
 
+    @abstractmethod
+    def reset(self):
+        pass
+
 
 class RandomNegariveSampler(BaseNegativeSampler):
     def __init__(self, data: TemporalData):
@@ -32,6 +36,9 @@ class RandomNegariveSampler(BaseNegativeSampler):
 
         n_ids = [batch.src, batch.dst, neg_src, neg_dst]
         batch.n_id = torch.cat(n_ids, dim=0).unique()
+
+    def reset(self):
+        pass
 
 
 class HistoricalNegativeSampler(BaseNegativeSampler):
