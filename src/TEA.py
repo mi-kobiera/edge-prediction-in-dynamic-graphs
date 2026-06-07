@@ -1,4 +1,5 @@
-import os
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,173 +7,173 @@ import matplotlib.pyplot as plt
 from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
 
 
-def build_temporal_edgelist(dataset, interval_size=86400):
-    """
-    Konwersja tgbl-review -> format używany przez TEA.
+##############################################################################
+# CONFIG
+##############################################################################
 
-    interval_size:
-        86400  = 1 dzień
-        604800 = 1 tydzień
-        2592000 = ~1 miesiąc
-    """
+DATASET_NAME = "tgbl-flight"
+INTERVAL_SIZE = 86400  # 1 day (change to 7*86400 for smoother plots)
 
-    data = dataset.get_TemporalData()
-
-    src = data.src.numpy()
-    dst = data.dst.numpy()
-    ts = data.t.numpy()
-
-    temporal_edgelist = {}
-
-    for u, v, t in zip(src, dst, ts):
-
-        ts_bin = int(t // interval_size)
-
-        if ts_bin not in temporal_edgelist:
-            temporal_edgelist[ts_bin] = {}
-
-        edge = (str(int(u)), str(int(v)))
-
-        if edge not in temporal_edgelist[ts_bin]:
-            temporal_edgelist[ts_bin][edge] = 1
-        else:
-            temporal_edgelist[ts_bin][edge] += 1
-
-    return temporal_edgelist
+OUTPUT_FILE = f"{DATASET_NAME}_TEA.pdf"
 
 
-def process_edgelist_per_timestamp(temp_edgelist):
+##############################################################################
+# LOAD DATASET
+##############################################################################
 
-    unique_ts = sorted(temp_edgelist.keys())
+print("Loading dataset...")
 
-    node_dict = {}
+dataset = PyGLinkPropPredDataset(
+    name=DATASET_NAME,
+    root="../datasets"
+)
 
-    for _, e_dict in temp_edgelist.items():
-        for e in e_dict:
-            node_dict[e[0]] = 1
-            node_dict[e[1]] = 1
+data = dataset.get_TemporalData()
 
-    num_nodes = len(node_dict)
-    num_e_fully_connected = num_nodes * (num_nodes - 1)
+src = data.src.numpy()
+dst = data.dst.numpy()
+ts = data.t.numpy()
 
-    edge_frequency_dict = {}
-    ts_edges_dist = []
-
-    seen_edges = set()
-
-    for curr_t in unique_ts:
-
-        curr_edges = set(temp_edgelist[curr_t].keys())
-
-        repeated = len(curr_edges & seen_edges)
-        new = len(curr_edges - seen_edges)
-        not_repeated = len(seen_edges - curr_edges)
-
-        for e in curr_edges:
-            edge_frequency_dict[e] = edge_frequency_dict.get(e, 0) + 1
-
-        ts_edges_dist.append({
-            "ts": curr_t,
-            "new": new,
-            "repeated": repeated,
-            "not_repeated": not_repeated,
-            "total_curr_ts": len(curr_edges),
-            "total_seen_until_curr_ts": len(seen_edges | curr_edges)
-        })
-
-        seen_edges |= curr_edges
-
-    return ts_edges_dist, edge_frequency_dict
+print(f"Total edges: {len(src):,}")
 
 
-def plot_tea(ts_edges_dist,
-             dataset_name="tgbl-review",
-             output_file="tgbl_review_TEA.pdf"):
+##############################################################################
+# BUILD TIME BUCKETS (FAST)
+##############################################################################
 
-    df = pd.DataFrame(ts_edges_dist)
+print("Building time bins...")
 
-    timestamps = np.arange(len(df))
+bins = defaultdict(set)
 
-    new = df["new"].values
-    repeated = df["repeated"].values
+for u, v, t in zip(src, dst, ts):
+    bin_id = int(t // INTERVAL_SIZE)
+    bins[bin_id].add((int(u), int(v)))
 
-    plt.figure(figsize=(12, 6))
+timestamps = sorted(bins.keys())
 
-    plt.bar(
-        timestamps,
-        repeated,
-        label="Repeated",
-        color="#404040",
-        alpha=0.5
-    )
-
-    plt.bar(
-        timestamps,
-        new,
-        bottom=repeated,
-        label="New",
-        color="#ca0020",
-        alpha=0.85,
-        hatch="//"
-    )
-
-    split_idx = int(0.85 * len(timestamps))
-
-    plt.axvline(
-        split_idx,
-        color="blue",
-        linestyle="--",
-        linewidth=2
-    )
-
-    plt.title(f"TEA Plot - {dataset_name}")
-    plt.xlabel("Timestamp bins")
-    plt.ylabel("Number of unique edges")
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig(output_file)
-    plt.show()
-
-    print(f"Zapisano: {output_file}")
+print(f"Number of time bins: {len(timestamps):,}")
 
 
-def main():
+##############################################################################
+# TEA COMPUTATION (O(E))
+##############################################################################
 
-    dataset = PyGLinkPropPredDataset(
-        name="tgbl-review",
-        root="../datasets"
-    )
+print("Computing TEA stats...")
 
-    # 1 dzień
-    interval_size = 86400
+seen_edges = set()
 
-    temp_edgelist = build_temporal_edgelist(
-        dataset,
-        interval_size=interval_size
-    )
+rows = []
 
-    print('dupa1')
+for i, t_bin in enumerate(timestamps):
 
-    ts_edges_dist, edge_frequency_dict = (
-        process_edgelist_per_timestamp(temp_edgelist)
-    )
+    curr = bins[t_bin]
 
-    print('dupa2')
+    repeated = curr & seen_edges
+    new = curr - seen_edges
 
-    plot_tea(
-        ts_edges_dist,
-        dataset_name="tgbl-review",
-        output_file="tgbl_review_TEA.pdf"
-    )
+    rows.append({
+        "ts": t_bin,
+        "new": len(new),
+        "repeated": len(repeated),
+        "total_curr_ts": len(curr),
+    })
 
-    mean_new = np.mean([x["new"] for x in ts_edges_dist])
-    mean_total = np.mean([x["total_curr_ts"] for x in ts_edges_dist])
+    seen_edges.update(curr)
 
-    print(f"Średnia liczba nowych krawędzi: {mean_new:.2f}")
-    print(f"Średnia liczba krawędzi na timestamp: {mean_total:.2f}")
-    print(f"New/Total ratio: {mean_new/mean_total:.4f}")
+    if i % 100 == 0:
+        print(f"{i}/{len(timestamps)} bins processed")
 
 
-if __name__ == "__main__":
-    main()
+df = pd.DataFrame(rows)
+
+
+##############################################################################
+# STATS
+##############################################################################
+
+avg_new = df["new"].mean()
+avg_total = df["total_curr_ts"].mean()
+
+print("\n===== STATS =====")
+print(f"Avg new edges per bin   : {avg_new:.2f}")
+print(f"Avg total edges per bin : {avg_total:.2f}")
+print(f"New/Total ratio         : {avg_new / avg_total:.4f}")
+
+
+##############################################################################
+# PLOT (ORIGINAL TEA STYLE)
+##############################################################################
+
+print("Plotting...")
+
+x = np.arange(len(df))
+
+new = df["new"].values
+repeated = df["repeated"].values
+
+plt.figure(figsize=(10, 8))
+plt.subplots_adjust(bottom=0.2, left=0.2)
+
+font_size = 20
+ticks_font_size = 18
+
+# --- TEA ORIGINAL COLORS ---
+plt.bar(
+    x,
+    repeated,
+    label="Repeated",
+    color="#404040",
+    alpha=0.4
+)
+
+plt.bar(
+    x,
+    new,
+    bottom=repeated,
+    label="New",
+    color="#ca0020",
+    alpha=0.8,
+    hatch="//"
+)
+
+# --- SPLIT LINE (85%) ---
+split_idx = int(0.85 * len(x))
+
+plt.axvline(
+    x=split_idx,
+    color="blue",
+    linestyle="--",
+    linewidth=2
+)
+
+plt.text(
+    split_idx,
+    max(new + repeated) * 0.02,
+    "x",
+    va="center",
+    ha="center",
+    fontsize=font_size,
+    fontweight="heavy",
+    color="blue"
+)
+
+
+##############################################################################
+# AXIS FORMATTING (same style as original TEA code)
+##############################################################################
+
+plt.xlabel("Timestamp", fontsize=font_size)
+plt.ylabel("Number of edges", fontsize=font_size)
+
+plt.xticks(fontsize=ticks_font_size)
+plt.yticks(fontsize=ticks_font_size)
+
+plt.margins(x=0)
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(OUTPUT_FILE, bbox_inches="tight")
+plt.show()
+
+print(f"Saved to: {OUTPUT_FILE}")

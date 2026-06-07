@@ -24,8 +24,8 @@ def main(cfg: DictConfig):
     from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
     import os
     print(os.getcwd())
-    dataset = PyGLinkPropPredDataset(name="tgbl-review", root="../datasets")
-    # dataset = PyGLinkPropPredDataset(name="tgbl-wiki", root="../datasets")
+    # dataset = PyGLinkPropPredDataset(name="tgbl-review", root="../datasets")
+    dataset = PyGLinkPropPredDataset(name="tgbl-wiki", root="../datasets")
     data = dataset.get_TemporalData()
     if hasattr(dataset, 'train_mask'):
         data.train_mask = dataset.train_mask

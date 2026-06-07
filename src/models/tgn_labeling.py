@@ -96,20 +96,20 @@ class TGNLabeling(BaseModel):
                 data.msg.size(-1), memory_dim, time_dim
             ),
             aggregator_module=LastAggregator(),
-        ).to(self._device)
+        )
 
         self.gnn = GraphAttentionEmbedding(
             in_channels=memory_dim,
             out_channels=embedding_dim,
             msg_dim=data.msg.size(-1),
             time_enc=self.memory.time_enc,
-        ).to(self._device)
+        )
 
         self.negative_sampler = negative_sampler
 
         self.link_pred = LinkPredictor(
             in_channels=embedding_dim, hidden_channels=embedding_dim, labeler=labeling
-        ).to(device)
+        )
 
         self.assoc = torch.empty(data.num_nodes, dtype=torch.long, device=self._device)
 
@@ -128,8 +128,8 @@ class TGNLabeling(BaseModel):
             z,
             last_update,
             edge_index,
-            self._data.t[e_id].to(self._device),
-            self._data.msg[e_id].to(self._device),
+            self._data.t[e_id],
+            self._data.msg[e_id],
         )
 
         local_src = self.assoc[batch.src]
@@ -160,8 +160,8 @@ class TGNLabeling(BaseModel):
             z,
             last_update,
             edge_index,
-            self._data.t[e_id].to(self._device),
-            self._data.msg[e_id].to(self._device),
+            self._data.t[e_id],
+            self._data.msg[e_id],
         )
 
         local_src = self.assoc[batch.src]
