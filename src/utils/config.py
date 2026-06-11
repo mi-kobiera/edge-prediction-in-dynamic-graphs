@@ -18,6 +18,7 @@ class DatasetSplitConfig(BaseModel):
 
 class DatasetConfig(BaseModel):
     path: Path = Field(..., description="Path to the processed dataset file")
+    name: str
     batch_size: int = Field(..., gt=0.0)
     split: DatasetSplitConfig
 

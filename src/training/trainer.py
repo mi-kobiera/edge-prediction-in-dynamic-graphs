@@ -54,22 +54,26 @@ class Trainer:
 
             avg_loss = total_loss / len(train_loader)
 
+            metrics = {"train/loss": avg_loss}
+
             # Evaluation
             if epoch % self.cfg.eval.eval_every == 0:
-                metrics = self._evaluate(val_loader, "val")
-                metrics["train/loss"] = avg_loss
+                val_metrics = self._evaluate(val_loader, "val")
+                metrics.update(val_metrics)
 
                 logger.info(
                     f"Epoch {epoch:03d} | Loss: {avg_loss:.4f} | "
                     f"Val AUC: {metrics.get('val/auc', 0):.4f} | "
                     f"Val AP: {metrics.get('val/ap', 0):.4f}"
                 )
+            else:
+                logger.info(f"Epoch {epoch:03d} | Loss: {avg_loss:.4f}")
 
-                for cb in self.callbacks:
-                    cb.on_epoch_end(self, metrics)
+            for cb in self.callbacks:
+                cb.on_epoch_end(self, metrics)
 
-                if self.should_stop:
-                    break
+            if self.should_stop:
+                break
 
         for cb in self.callbacks:
             cb.on_train_end(self)

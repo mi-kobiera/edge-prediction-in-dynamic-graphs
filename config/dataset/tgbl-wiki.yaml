@@ -1,4 +1,5 @@
-path: ./data/processed/ml_wikipedia.pt
+path: asdf
+name: tgbl-wiki
 batch_size: 200
 split:
   val_ratio: 0.15

@@ -8,6 +8,7 @@ from matplotlib.colors import ListedColormap
 import matplotlib.gridspec as gridspec
 
 from tgb.linkproppred.dataset_pyg import PyGLinkPropPredDataset
+from data.loader import load_tgn_format_dataset
 
 ##############################################################################
 # CONFIGURATION & LATEX AESTHETICS
@@ -24,12 +25,20 @@ plt.rcParams.update({
     "figure.titlesize": 18
 })
 
+# DATASETS = [
+#     "tgbl-wiki",       # Duży wykres (góra-lewo)
+#     "tgbl-review",     # Duży wykres (góra-prawo)
+#     "tgbl-coin",       # Mały wykres (dół-lewo)
+#     "tgbl-comment",    # Mały wykres (dół-środek)
+#     "tgbl-flight"      # Mały wykres (dół-prawo)
+# ]
+
 DATASETS = [
-    "tgbl-wiki",       # Duży wykres (góra-lewo)
-    "tgbl-review",     # Duży wykres (góra-prawo)
-    "tgbl-coin",       # Mały wykres (dół-lewo)
-    "tgbl-comment",    # Mały wykres (dół-środek)
-    "tgbl-flight"      # Mały wykres (dół-prawo)
+    "tgbl-wiki",
+    "Enron",
+    "mooc",
+    "uci",
+    "UNvote"
 ]
 
 MAX_BINS = 250   # Maksymalna liczba binów dla NAJDŁUŻSZEGO zbioru
@@ -146,8 +155,25 @@ max_duration = 0
 
 for dataset_name in DATASETS:
     print(f"Loading {dataset_name}...")
-    dataset = PyGLinkPropPredDataset(name=dataset_name, root=ROOT_DIR)
-    data = dataset.get_TemporalData()
+
+    if dataset_name == 'tgbl-wiki':
+        dataset = PyGLinkPropPredDataset(name=dataset_name, root=ROOT_DIR)
+        data = dataset.get_TemporalData()
+    else:
+        data_dir = f"/Users/mi-kobiera/Downloads/TG_network_datasets/{dataset_name}"
+        data = load_tgn_format_dataset(
+            data_dir=data_dir, 
+            network_name=dataset_name,
+            val_ratio=0.15,
+            test_ratio=0.15
+        )
+
+    print(dataset_name)
+    print("num_edges", data.num_edges)
+    print("num_events", data.num_events)
+    print("num_nodes", data.num_nodes)
+
+    
     src, dst, ts = data.src.numpy(), data.dst.numpy(), data.t.numpy()
     
     t_min, t_max = ts.min(), ts.max()

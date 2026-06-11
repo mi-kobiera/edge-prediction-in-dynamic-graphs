@@ -44,7 +44,7 @@ class LinkPredictor(torch.nn.Module):
         super().__init__()
         self.labeler = labeler
 
-        self.label_emb = torch.nn.Embedding(6, in_channels)
+        self.label_emb = torch.nn.Embedding(102, in_channels)
         self.lin_transform = torch.nn.Linear(in_channels, hidden_channels)
 
         self.lin_src = torch.nn.Linear(in_channels, in_channels)

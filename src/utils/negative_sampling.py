@@ -28,8 +28,9 @@ class RandomNegariveSampler(BaseNegativeSampler):
         self.dtype = data.src.dtype
 
     def sample(self, batch, size, **kwargs):
-        neg_src = torch.randint(low=self.min_src, high=self.max_src + 1, size=(size,), dtype=self.dtype, device=self.device)
-        neg_dst = torch.randint(low=self.min_dst, high=self.max_dst + 1, size=(size,), dtype=self.dtype, device=self.device)
+        device = batch.src.device
+        neg_src = torch.randint(low=self.min_src, high=self.max_src + 1, size=(size,), dtype=self.dtype, device=device)
+        neg_dst = torch.randint(low=self.min_dst, high=self.max_dst + 1, size=(size,), dtype=self.dtype, device=device)
 
         batch.neg_src = neg_src
         batch.neg_dst = neg_dst
@@ -61,19 +62,18 @@ class HistoricalNegativeSampler(BaseNegativeSampler):
         src_cpu = batch.src.cpu().numpy()
         dst_cpu = batch.dst.cpu().numpy()
         
-        neg_dst_list = []
+        neg_dst_list = np.empty(size, dtype=np.int64)
+        rand_floats = np.random.rand(size)
+        rand_fallback = np.random.randint(self.min_dst, self.max_dst + 1, size=size)
         
         for i in range(size):
             u = src_cpu[i] if i < len(src_cpu) else src_cpu[0]
-            
-            past_interactions = self.history.get(u, [])
-            
-            if len(past_interactions) > 0:
-                neg_v = np.random.choice(past_interactions)
+            past = self.history.get(u)
+            if past:
+                idx = int(rand_floats[i] * len(past))
+                neg_dst_list[i] = past[idx]
             else:
-                neg_v = np.random.randint(self.min_dst, self.max_dst + 1)
-                
-            neg_dst_list.append(neg_v)
+                neg_dst_list[i] = rand_fallback[i]
 
         neg_dst = torch.tensor(neg_dst_list, dtype=self.dtype, device=self.device)
         neg_src = batch.src.clone()[:size]
@@ -131,23 +131,18 @@ class InductiveNegativeSampler(BaseNegativeSampler):
         src_cpu = batch.src.cpu().numpy()
         dst_cpu = batch.dst.cpu().numpy()
         
-        neg_dst_list = []
+        neg_dst_list = np.empty(size, dtype=np.int64)
+        rand_floats = np.random.rand(size)
+        rand_fallback = np.random.randint(self.min_dst, self.max_dst + 1, size=size)
         
         for i in range(size):
             u = src_cpu[i] if i < len(src_cpu) else src_cpu[0]
-            
-            # Pobieramy dotychczasowe krawędzie indukcyjne dla danego węzła
-            past_inductive_interactions = self.inductive_history.get(u, [])
-            
-            if len(past_inductive_interactions) > 0:
-                # Losujemy negatywny węzeł docelowy z krawędzi indukcyjnych (nowych)
-                neg_v = np.random.choice(past_inductive_interactions)
+            past = self.inductive_history.get(u)
+            if past:
+                idx = int(rand_floats[i] * len(past))
+                neg_dst_list[i] = past[idx]
             else:
-                # Fallback do Random NS, zgodnie z opisem z publikacji:
-                # "the remaining negative edges are sampled by the random NS strategy"
-                neg_v = np.random.randint(self.min_dst, self.max_dst + 1)
-                
-            neg_dst_list.append(neg_v)
+                neg_dst_list[i] = rand_fallback[i]
 
         neg_dst = torch.tensor(neg_dst_list, dtype=self.dtype, device=self.device)
         # Zachowujemy oryginalne src, zmieniamy tylko dst, symulując nieistniejącą 

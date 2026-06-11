@@ -11,6 +11,17 @@ from models.base import BaseModel
 from utils.config import ExperimentConfig
 from labeling.base import NodeLabeling
 from utils.negative_sampling import BaseNegativeSampler
+from torch_geometric.utils._scatter import scatter_argmax
+
+class MPSLastAggregator(torch.nn.Module):
+    def forward(self, msg, index, t, dim_size):
+        t_float = t.float() if t.device.type == 'mps' else t
+        argmax = scatter_argmax(t_float, index, dim=0, dim_size=dim_size)
+        out = msg.new_zeros(dim_size, msg.size(-1))
+        mask = argmax < msg.size(0)
+        out[mask] = msg[argmax[mask]]
+        return out
+
 
 
 class GraphAttentionEmbedding(torch.nn.Module):
@@ -61,7 +72,7 @@ class TGN(BaseModel):
             message_module=IdentityMessage(
                 data.msg.size(-1), memory_dim, time_dim
             ),
-            aggregator_module=LastAggregator(),
+            aggregator_module=MPSLastAggregator(),
         )
 
         self.gnn = GraphAttentionEmbedding(

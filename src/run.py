@@ -1,4 +1,31 @@
+import os
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import torch
+import torch_geometric
+import torch_geometric.utils._scatter as pygs
+
+# Monkeypatch PyG scatter to support LongTensor on MPS
+# old_scatter = pygs.scatter
+# def new_scatter(src, index, dim=0, dim_size=None, reduce='sum'):
+#     if src.dtype == torch.long and src.device.type == 'mps' and reduce in ['max', 'amax', 'min', 'amin']:
+#         return old_scatter(src.float(), index, dim, dim_size, reduce).long()
+#     return old_scatter(src, index, dim, dim_size, reduce)
+# pygs.scatter = new_scatter
+# torch_geometric.utils.scatter = new_scatter
+# import torch_geometric.nn.models.tgn
+# torch_geometric.nn.models.tgn.scatter = new_scatter
+
+# old_scatter_argmax = pygs.scatter_argmax
+# def new_scatter_argmax(src, index, dim=0, dim_size=None):
+#     if src.dtype == torch.long and src.device.type == 'mps':
+#         return old_scatter_argmax(src.float(), index, dim, dim_size)
+#     return old_scatter_argmax(src, index, dim, dim_size)
+# pygs.scatter_argmax = new_scatter_argmax
+# torch_geometric.utils.scatter_argmax = new_scatter_argmax
+# torch_geometric.nn.models.tgn.scatter_argmax = new_scatter_argmax
+# end monkeypatch
+
+
 import logging
 import hydra
 from omegaconf import DictConfig
@@ -25,12 +52,19 @@ def main(cfg: DictConfig):
     import os
     print(os.getcwd())
     # dataset = PyGLinkPropPredDataset(name="tgbl-review", root="../datasets")
-    dataset = PyGLinkPropPredDataset(name="tgbl-wiki", root="../datasets")
+    dataset = PyGLinkPropPredDataset(name="tgbl-flights", root="../datasets")
     data = dataset.get_TemporalData()
     if hasattr(dataset, 'train_mask'):
         data.train_mask = dataset.train_mask
         data.val_mask = dataset.val_mask
         data.test_mask = dataset.test_mask
+
+    for key in data.keys():
+        val = getattr(data, key)
+        if hasattr(val, 'dtype') and val.dtype == torch.float64:
+            setattr(data, key, val.to(torch.float32))
+
+    data = data.to(exp_cfg.device)
 
     train_data = data[data.train_mask]
     val_data = data[data.val_mask]
