@@ -1,6 +1,0 @@
-_name: tgn_zot_lt
-_target_: models.TGN_zot.TGN_ZOT
-dropout: 0.1
-memory_dim: 100
-embedding_dim: 100
-time_dim: 100

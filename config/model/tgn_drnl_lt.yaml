@@ -1,6 +1,0 @@
-_name: tgn_drnl_lt
-_target_: models.TGN_drnl.TGN_DRNL
-dropout: 0.1
-memory_dim: 100
-embedding_dim: 100
-time_dim: 100

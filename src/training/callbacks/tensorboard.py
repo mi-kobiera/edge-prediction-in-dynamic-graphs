@@ -37,10 +37,6 @@ class TensorBoardLogger(Callback):
             if isinstance(value, (int, float)):
                 self.writer.add_scalar(key, value, epoch)
 
-        # learning rate
-        # for i, param_group in enumerate(trainer.optimizer.param_groups):
-        #     self.writer.add_scalar(f"lr/group_{i}", param_group["lr"], epoch)
-
         self.writer.flush()
 
     def on_train_end(self, trainer):

@@ -1,8 +1,9 @@
 import logging
+import torch
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 from models.base import BaseModel
 from training.callbacks.base import Callback
-from training.evaluator import Evaluator
 
 logger = logging.getLogger(__name__)
 
@@ -11,18 +12,18 @@ class Trainer:
     def __init__(
         self,
         cfg,
-        model,
+        model: BaseModel,
         optimizer,
         criterion,
-        evaluator,
+        negative_sampler,
         device,
         callbacks: list[Callback] | None = None,
     ):
         self.cfg = cfg
-        self.model: BaseModel = model.to(device)
+        self.model = model.to(device)
         self.optimizer = optimizer
         self.criterion = criterion
-        self.evaluator: Evaluator = evaluator
+        self.negative_sampler = negative_sampler
         self.device = device
 
         self.callbacks = callbacks or []
@@ -53,22 +54,26 @@ class Trainer:
 
             avg_loss = total_loss / len(train_loader)
 
+            metrics = {"train/loss": avg_loss}
+
             # Evaluation
             if epoch % self.cfg.eval.eval_every == 0:
-                metrics = self.evaluator.evaluate(val_loader, "val")
-                metrics["train/loss"] = avg_loss
+                val_metrics = self._evaluate(val_loader, "val")
+                metrics.update(val_metrics)
 
                 logger.info(
                     f"Epoch {epoch:03d} | Loss: {avg_loss:.4f} | "
                     f"Val AUC: {metrics.get('val/auc', 0):.4f} | "
                     f"Val AP: {metrics.get('val/ap', 0):.4f}"
                 )
+            else:
+                logger.info(f"Epoch {epoch:03d} | Loss: {avg_loss:.4f}")
 
-                for cb in self.callbacks:
-                    cb.on_epoch_end(self, metrics)
+            for cb in self.callbacks:
+                cb.on_epoch_end(self, metrics)
 
-                if self.should_stop:
-                    break
+            if self.should_stop:
+                break
 
         for cb in self.callbacks:
             cb.on_train_end(self)
@@ -76,6 +81,32 @@ class Trainer:
 
     def test(self, test_loader):
         logger.info("Evaluating on test set...")
-        test_metrics = self.evaluator.evaluate(test_loader)
+        self.negative_sampler.reset()
+        test_metrics = self._evaluate(test_loader)
         logger.info(f"Test results: {test_metrics}")
         return test_metrics
+
+    @torch.no_grad()
+    def _evaluate(self, loader, prefix="test"):
+        self.model.eval()
+        y_pred, y_true = [], []
+
+        for batch in loader:
+            batch = batch.to(self.device)
+
+            pos_out, neg_out = self.model.test_step(batch)
+
+            y_pred.append(torch.cat([pos_out, neg_out], dim=0).sigmoid().cpu())
+            y_true.append(
+                torch.cat(
+                    [torch.ones(pos_out.size(0)), torch.zeros(neg_out.size(0))], dim=0
+                )
+            )
+
+        y_pred = torch.cat(y_pred).numpy()
+        y_true = torch.cat(y_true).numpy()
+
+        return {
+            f"{prefix}/auc": roc_auc_score(y_true, y_pred),
+            f"{prefix}/ap": average_precision_score(y_true, y_pred),
+        }

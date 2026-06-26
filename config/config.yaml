@@ -1,9 +1,11 @@
 defaults:
-  - dataset: wikipedia
+  - dataset: tgbl-wiki
   - model: tgn
+  - negative_sampling: random
+  - optional labeling: null
   - _self_
 
-experiment_name: "${model._name}_${dataset._name}_lr${training.lr}"
+experiment_name: "..."
 seed: 42
 device: cpu
 
@@ -12,7 +14,7 @@ training:
   lr: 0.0001
   weight_decay: 1e-5
   early_stopping:
-    patience: 5
+    patience: 7
 
 eval:
   eval_every: 1

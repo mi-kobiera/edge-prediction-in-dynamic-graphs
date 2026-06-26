@@ -1,8 +1,0 @@
-_name: wikipedia
-path: ./data/processed/ml_wikipedia.pt
-batch_size: 200
-negative_sampling_ratio: 1
-split:
-  val_ratio: 0.15
-  test_ratio: 0.15
-num_neighbors: 10

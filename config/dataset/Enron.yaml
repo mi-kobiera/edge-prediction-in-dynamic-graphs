@@ -1,0 +1,6 @@
+path: ./datasets/Enron
+name: Enron
+batch_size: 200
+split:
+  val_ratio: 0.15
+  test_ratio: 0.15

@@ -1,4 +1,4 @@
-_target_: models.tgn_vanilla.TGN
+_target_: models.se_tgn.SE_TGN
 dropout: 0.1
 memory_dim: 50
 embedding_dim: 50

@@ -1,0 +1,1 @@
+_target_: utils.negative_sampling.InductiveNegativeSampler
