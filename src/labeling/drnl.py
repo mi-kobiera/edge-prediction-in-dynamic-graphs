@@ -2,25 +2,25 @@ import torch
 from torch_geometric.utils import to_dense_adj
 from .base import NodeLabeling
 
-MAX_DIST = 4
-# Wartości dystansów: 0..MAX_DIST = osiągalne, MAX_DIST+1 = nieosiągalne (sentinel)
-# Embedding potrzebuje MAX_DIST + 2 slotów
+MAX_DIST = 10
+MAX_LABEL = 101
 
 
-class DENL(NodeLabeling):
+class DRNL(NodeLabeling):
     def __init__(self):
         super().__init__()
 
+    @property
+    def label_dim(self) -> int:
+        return 102
+
     def compute(self, z, edge_index, local_src, local_dst):
         """
-        Distance Encoding (DE) Node Labeling.
+        Double Radius Node Labeling (DRNL)
 
-        Dla każdego węzła v zwraca parę (d_src, d_dst) gdzie:
-            d_src = dist(v, src), d_dst = dist(v, dst)
+        label = 1 + min(d_src, d_dst) + (d_sum//2) * (d_sum//2 + d_sum%2 - 1)
 
-        Węzły nieosiągalne lub dalsze niż MAX_DIST dostają wartość MAX_DIST + 1.
-
-        Output shape: [Batch_Size, Num_Nodes, 2]
+        Output shape: [Batch_Size, Num_Nodes]
         """
         num_nodes = z.size(0)
         batch_size = local_src.size(0)
@@ -28,10 +28,8 @@ class DENL(NodeLabeling):
 
         adj = to_dense_adj(edge_index, max_num_nodes=num_nodes).squeeze(0)  # [N, N]
 
-        # Sentinel dla nieosiągalnych = MAX_DIST + 1
-        sentinel = MAX_DIST + 1
-        batch_dists = torch.full(
-            (batch_size, num_nodes, 2), sentinel, dtype=torch.long, device=device
+        batch_labels = torch.zeros(
+            batch_size, num_nodes, dtype=torch.long, device=device
         )
 
         for i in range(batch_size):
@@ -41,21 +39,29 @@ class DENL(NodeLabeling):
             dist_src = self._bfs_distances(adj, src, num_nodes, device)  # [N]
             dist_dst = self._bfs_distances(adj, dst, num_nodes, device)  # [N]
 
-            # Clamp: węzły dalej niż MAX_DIST → sentinel
-            dist_src = dist_src.clamp(max=sentinel)
-            dist_dst = dist_dst.clamp(max=sentinel)
+            reachable = (dist_src <= MAX_DIST) & (dist_dst <= MAX_DIST)
 
-            batch_dists[i, :, 0] = dist_src
-            batch_dists[i, :, 1] = dist_dst
+            d_src = dist_src[reachable]
+            d_dst = dist_dst[reachable]
+            d_sum = d_src + d_dst
 
-        return batch_dists
+            over2 = d_sum // 2
+            labels = 1 + torch.min(d_src, d_dst) + over2 * (over2 + d_sum % 2 - 1)
+
+            labels = labels.clamp(max=MAX_LABEL)
+
+            node_labels = torch.zeros(num_nodes, dtype=torch.long, device=device)
+            node_labels[reachable] = labels
+
+            node_labels[src] = 0
+            node_labels[dst] = 0
+
+            batch_labels[i] = node_labels
+
+        return batch_labels
 
     @staticmethod
     def _bfs_distances(adj, source, num_nodes, device):
-        """
-        BFS po gęstej macierzy sąsiedztwa od węzła `source`.
-        Nieosiągalne węzły mają dist = num_nodes (+inf sentinel, clampowany później).
-        """
         dist = torch.full((num_nodes,), num_nodes, dtype=torch.long, device=device)
         dist[source] = 0
 

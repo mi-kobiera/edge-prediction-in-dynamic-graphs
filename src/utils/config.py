@@ -41,7 +41,7 @@ class TGNConfig(ModelConfig):
 
 
 class NodeLabelingConfig(BaseModel):
-    label_dim: int = Field(1, ge=0)
+    pass
 
 
 # ----- Negative sampling -----
@@ -89,9 +89,7 @@ class TensorBoardConfig(BaseModel):
 class ExperimentConfig(BaseModel):
     experiment_name: str | None = None
     seed: int | None = Field(default=None)
-    device: Literal["cpu", "cuda", "mps"] = Field(
-        "cuda"
-    )  # TODO dla mps: RuntimeError: indices should be either on cpu or on the same device as the indexed tensor (cpu)
+    device: Literal["cpu", "cuda", "mps"] = Field("cuda")
     dataset: DatasetConfig
     model: TGNConfig
     negative_sampling: NegativeSamplingConfig

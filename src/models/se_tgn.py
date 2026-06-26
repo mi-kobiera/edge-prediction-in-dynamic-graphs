@@ -1,26 +1,12 @@
 import torch
 from torch_geometric.nn import TGNMemory, TransformerConv
-from torch_geometric.nn.models.tgn import (
-    IdentityMessage,
-    LastAggregator,
-    LastNeighborLoader,
-)
+from torch_geometric.nn.models.tgn import IdentityMessage, LastNeighborLoader, LastAggregator
 from torch_geometric.data import TemporalData
 
 from models.base import BaseModel
-from utils.config import ExperimentConfig
 from labeling.base import NodeLabeling
 from utils.negative_sampling import BaseNegativeSampler
-from torch_geometric.utils._scatter import scatter_argmax
 
-class MPSLastAggregator(torch.nn.Module):
-    def forward(self, msg, index, t, dim_size):
-        t_float = t.float() if t.device.type == 'mps' else t
-        argmax = scatter_argmax(t_float, index, dim=0, dim_size=dim_size)
-        out = msg.new_zeros(dim_size, msg.size(-1))
-        mask = argmax < msg.size(0)
-        out[mask] = msg[argmax[mask]]
-        return out
 
 class GraphAttentionEmbedding(torch.nn.Module):
     def __init__(self, in_channels, out_channels, msg_dim, time_enc):
@@ -44,7 +30,7 @@ class LinkPredictor(torch.nn.Module):
         super().__init__()
         self.labeler = labeler
 
-        self.label_emb = torch.nn.Embedding(102, in_channels)
+        self.label_emb = torch.nn.Embedding(labeler.label_dim, in_channels)
         self.lin_transform = torch.nn.Linear(in_channels, hidden_channels)
 
         self.lin_src = torch.nn.Linear(in_channels, in_channels)
@@ -87,8 +73,19 @@ class LinkPredictor(torch.nn.Module):
         return self.lin_final(h)
 
 
-class TGNLabeling(BaseModel):
-    def __init__(self, num_neighbors: int, dropout: float, memory_dim: int, embedding_dim: int, time_dim: int, data: TemporalData, negative_sampler: BaseNegativeSampler, labeling: NodeLabeling | None, device: str):
+class SE_TGN(BaseModel):
+    def __init__(
+        self,
+        num_neighbors: int,
+        dropout: float,
+        memory_dim: int,
+        embedding_dim: int,
+        time_dim: int,
+        data: TemporalData,
+        negative_sampler: BaseNegativeSampler,
+        labeling: NodeLabeling,
+        device: str,
+    ):
         super().__init__()
         self._data = data
         self._device = device
@@ -102,10 +99,8 @@ class TGNLabeling(BaseModel):
             data.msg.size(-1),
             memory_dim,
             time_dim,
-            message_module=IdentityMessage(
-                data.msg.size(-1), memory_dim, time_dim
-            ),
-            aggregator_module=MPSLastAggregator(),
+            message_module=IdentityMessage(data.msg.size(-1), memory_dim, time_dim),
+            aggregator_module=LastAggregator(),
         )
 
         self.gnn = GraphAttentionEmbedding(
@@ -144,7 +139,6 @@ class TGNLabeling(BaseModel):
 
         local_src = self.assoc[batch.src]
         local_dst = self.assoc[batch.dst]
-        # local_neg_src = self.assoc[batch.neg_src]
         local_neg_src = self.assoc[batch.src]
         local_neg_dst = self.assoc[batch.neg_dst]
 
@@ -176,7 +170,6 @@ class TGNLabeling(BaseModel):
 
         local_src = self.assoc[batch.src]
         local_dst = self.assoc[batch.dst]
-        # local_neg_src = self.assoc[batch.neg_src]
         local_neg_src = self.assoc[batch.src]
         local_neg_dst = self.assoc[batch.neg_dst]
 
@@ -187,6 +180,6 @@ class TGNLabeling(BaseModel):
         self.neighbor_loader.insert(batch.src, batch.dst)
 
         return pos_out, neg_out
-    
+
     def after_optimizer_step(self):
         self.memory.detach()

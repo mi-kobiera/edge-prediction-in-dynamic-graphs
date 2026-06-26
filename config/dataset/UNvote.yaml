@@ -1,4 +1,4 @@
-path: /Users/mi-kobiera/Downloads/TG_network_datasets/UNvote
+path: ./datasets/UNvote
 name: UNvote
 batch_size: 2000
 split:

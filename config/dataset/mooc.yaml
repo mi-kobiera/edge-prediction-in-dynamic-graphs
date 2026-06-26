@@ -1,4 +1,4 @@
-path: /Users/mi-kobiera/Downloads/TG_network_datasets/mooc
+path: ./datasets/mooc
 name: mooc
 batch_size: 200
 split:

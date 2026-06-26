@@ -1,6 +1,0 @@
-_target_: models.tgn_labeling_zot.TGNLabeling
-dropout: 0.1
-memory_dim: 50
-embedding_dim: 50
-time_dim: 50
-num_neighbors: 10

@@ -2,15 +2,19 @@ import torch
 from torch_geometric.utils import to_dense_adj
 
 from .base import NodeLabeling
-from utils.config import ExperimentConfig
+
 
 class ZeroOneTwoNL(NodeLabeling):
     def __init__(self):
         super().__init__()
 
+    @property
+    def label_dim(self) -> int:
+        return 3
+
     def compute(self, z, edge_index, local_src, local_dst):
         """
-        Zero-One-Two Labeling 
+        Zero-One-Two Labeling
         Output shape: [Batch_Size, Num_Nodes].
         """
         num_nodes = z.size(0)
@@ -25,7 +29,9 @@ class ZeroOneTwoNL(NodeLabeling):
         common = neigh_src * neigh_dst
         union = (neigh_src + neigh_dst) > 0
 
-        batch_labels = torch.zeros(batch_size, num_nodes, dtype=torch.long, device=device)
+        batch_labels = torch.zeros(
+            batch_size, num_nodes, dtype=torch.long, device=device
+        )
 
         batch_labels[union] = 1
         batch_labels[common.bool()] = 2

@@ -1,4 +1,4 @@
-path: /Users/mi-kobiera/Downloads/TG_network_datasets/Enron
+path: ./datasets/Enron
 name: Enron
 batch_size: 200
 split:
